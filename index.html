@@ -70,12 +70,30 @@
     background: var(--bg);
     color: var(--text);
   }
-  .shift-readout {
+  .shift-box {
     margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .shift-box button {
+    flex: none;
+    width: 52px;
+    height: 52px;
+    padding: 0;
+    font-size: 1.6rem;
+    line-height: 1;
+    font-weight: 600;
+    touch-action: manipulation; /* 連打でズームしないようにする */
+  }
+  .shift-readout {
+    flex: 1;
+    min-width: 0;
     padding: 12px 14px;
     border-radius: 8px;
     background: var(--accent-weak);
     font-size: .95rem;
+    text-align: center;
   }
   .shift-readout strong { color: var(--accent); font-size: 1.1rem; }
   .row { display: flex; align-items: center; gap: 12px; }
@@ -144,7 +162,11 @@
         <input type="number" id="cents" min="-100" max="100" step="1" value="0">
       </label>
     </div>
-    <div class="shift-readout" id="readout"></div>
+    <div class="shift-box">
+      <button id="down" aria-label="半音下げる">−</button>
+      <div class="shift-readout" id="readout" aria-live="polite"></div>
+      <button id="up" aria-label="半音上げる">＋</button>
+    </div>
     <p class="hint">
       主部のギャロップはイ長調（A）です。録音の調はこれを基準にしています。
       古い録音でピッチが A=440Hz からずれているときは、微調整で合わせてください。
@@ -266,6 +288,16 @@ function semitoneShift() {
 function totalShift() {
   const c = Math.max(-100, Math.min(100, Number(els.cents.value) || 0));
   return semitoneShift() + c / 100;
+}
+
+// 移調量を半音単位で増減する（−11〜+11）。
+// 「再生したい調」と「移調する方向」を、新しい移調量になるよう合わせて変える。
+function stepShift(delta) {
+  const d = Math.max(-11, Math.min(11, semitoneShift() + delta));
+  const from = Number(els.origKey.value);
+  els.targetKey.value = ((from + d) % 12 + 12) % 12;
+  els.direction.value = d >= -5 && d <= 6 ? 'near' : d > 0 ? 'up' : 'down';
+  applyPitch();
 }
 
 function updateReadout() {
@@ -441,6 +473,8 @@ els.drop.addEventListener('drop', (e) => {
 
 for (const el of [els.origKey, els.targetKey, els.direction]) el.addEventListener('change', applyPitch);
 els.cents.addEventListener('input', applyPitch);
+$('up').addEventListener('click', () => stepShift(1));
+$('down').addEventListener('click', () => stepShift(-1));
 els.tempo.addEventListener('input', applyTempo);
 els.volume.addEventListener('input', applyVolume);
 
