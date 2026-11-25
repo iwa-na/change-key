@@ -169,8 +169,8 @@
     </div>
     <div class="row">
       <span class="lbl">音量</span>
-      <input type="range" id="volume" min="0" max="100" value="80" step="1">
-      <span class="val" id="volumeVal">80%</span>
+      <input type="range" id="volume" min="0" max="100" value="100" step="1">
+      <span class="val" id="volumeVal">100%</span>
     </div>
     <div class="status" id="status"></div>
   </section>
@@ -239,11 +239,14 @@ els.targetKey.value = saved.targetKey ?? ORIGINAL_KEY;
 els.direction.value = saved.direction ?? 'near';
 els.cents.value = saved.cents ?? 0;
 els.tempo.value = saved.tempo ?? 100;
-els.volume.value = saved.volume ?? 80;
+els.volume.value = saved.volume ?? 100;
 
 // 再生状態
+// 音の流れ: PitchShifter → norm（録音ごとの音量補正）→ gain（音量スライダー）→ limiter（音割れ防止）→ 出力
 let ctx = null;
+let norm = null;
 let gain = null;
+let limiter = null;
 let buffer = null;
 let shifter = null;
 let playing = false;
@@ -291,7 +294,7 @@ function applyTempo() {
 function applyVolume() {
   const v = Number(els.volume.value);
   els.volumeVal.textContent = `${v}%`;
-  if (gain) gain.gain.value = (v / 100) ** 2;
+  if (gain) gain.gain.value = v / 100;
   saveSettings();
 }
 
@@ -327,7 +330,33 @@ function createShifter() {
   shifter.pitchSemitones = totalShift();
   shifter.tempo = Number(els.tempo.value) / 100;
   shifter.on('play', (detail) => updateTime(detail.timePlayed));
-  shifter.connect(gain);
+  shifter.connect(norm);
+}
+
+// 録音の音量を測り、大きな音がほぼ最大音量に届くよう補正量を決める。
+// 単発のノイズに引きずられないよう、最大値ではなく上位 0.05% の振幅を基準にする。
+// それを超える部分はリミッターで抑える。
+function normalizeGain(buf) {
+  const BINS = 2048;
+  const hist = new Uint32Array(BINS);
+  let total = 0;
+  for (let c = 0; c < buf.numberOfChannels; c++) {
+    const d = buf.getChannelData(c);
+    for (let i = 0; i < d.length; i++) {
+      const a = Math.abs(d[i]);
+      hist[a >= 1 ? BINS - 1 : Math.floor(a * BINS)]++;
+    }
+    total += d.length;
+  }
+  let remain = Math.ceil(total * 0.0005);
+  let level = 1;
+  for (let b = BINS - 1; b >= 0; b--) {
+    remain -= hist[b];
+    if (remain <= 0) { level = (b + 1) / BINS; break; }
+  }
+  const TARGET = 0.9;   // 約 -1dB
+  const MAX_GAIN = 16;  // +24dB まで
+  return Math.min(MAX_GAIN, Math.max(1, TARGET / Math.max(level, 1e-4)));
 }
 
 function onEnded() {
@@ -348,8 +377,17 @@ async function loadFile(file) {
   try {
     if (!ctx) {
       ctx = new AudioContext();
+      norm = ctx.createGain();
       gain = ctx.createGain();
-      gain.connect(ctx.destination);
+      limiter = ctx.createDynamicsCompressor();
+      limiter.threshold.value = -2;
+      limiter.knee.value = 0;
+      limiter.ratio.value = 20;
+      limiter.attack.value = 0.003;
+      limiter.release.value = 0.25;
+      norm.connect(gain);
+      gain.connect(limiter);
+      limiter.connect(ctx.destination);
       applyVolume();
     }
     await ctx.suspend();
@@ -357,10 +395,13 @@ async function loadFile(file) {
     destroyShifter();
     const data = await file.arrayBuffer();
     buffer = await ctx.decodeAudioData(data);
+    const g = normalizeGain(buffer);
+    norm.gain.value = g;
     createShifter();
     updateTime(0);
     els.play.disabled = els.stop.disabled = els.seek.disabled = false;
-    els.status.textContent = `読み込み完了（${fmt(buffer.duration)}、${buffer.numberOfChannels === 1 ? 'モノラル' : 'ステレオ'}）`;
+    const db = 20 * Math.log10(g);
+    els.status.textContent = `読み込み完了（${fmt(buffer.duration)}、${buffer.numberOfChannels === 1 ? 'モノラル' : 'ステレオ'}、音量補正 +${db.toFixed(1)}dB）`;
   } catch (e) {
     console.error(e);
     buffer = null;
