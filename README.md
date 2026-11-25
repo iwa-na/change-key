@@ -5,7 +5,7 @@
 ## 使い方
 
 1. `index.html` をブラウザで開く（GitHub Pages で公開している場合はそのページを開く）。
-2. 録音ファイル（MP3 / OGG / WAV など）を選ぶか、画面にドロップする。
+2. 録音ファイル（MP3 / OGG / OGX / WAV など）を選ぶか、画面にドロップする。
    - オーケストラ録音の例：[IMSLP](https://imslp.org/wiki/Leichte_Kavallerie_(Supp%C3%A9%2C_Franz_von)) の Schüchter 指揮盤
 3. 「再生したい調」を選んで再生する。基準は主部ギャロップのイ長調。
 

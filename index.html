@@ -111,7 +111,7 @@
   <section>
     <h2>1. 音源ファイル</h2>
     <label class="drop" id="drop">
-      <input type="file" id="file" accept="audio/*,.mp3,.ogg,.wav,.flac,.m4a">
+      <input type="file" id="file" accept="audio/*,application/ogg,.mp3,.ogg,.oga,.ogx,.opus,.wav,.flac,.m4a">
       クリックして選ぶか、ここに音声ファイルをドロップ
       <div class="file-name" id="fileName">未選択</div>
     </label>
@@ -363,7 +363,7 @@ async function loadFile(file) {
   } catch (e) {
     console.error(e);
     buffer = null;
-    els.status.textContent = 'このファイルは読み込めませんでした。MP3 / OGG / WAV などの音声ファイルを選んでください。';
+    els.status.textContent = 'このファイルは読み込めませんでした。MP3 / OGG / OGX / WAV などの音声ファイルを選んでください。OGG・OGX がこのブラウザで読めない場合は MP3 に変換してください。';
   }
 }
 
