@@ -111,7 +111,8 @@
   <section>
     <h2>1. 音源ファイル</h2>
     <label class="drop" id="drop">
-      <input type="file" id="file" accept="audio/*,application/ogg,.mp3,.ogg,.oga,.ogx,.opus,.wav,.flac,.m4a">
+      <!-- スマホでは .ogx などが音声と認識されず絞り込みで選べなくなるため、accept は指定しない -->
+      <input type="file" id="file">
       クリックして選ぶか、ここに音声ファイルをドロップ
       <div class="file-name" id="fileName">未選択</div>
     </label>
